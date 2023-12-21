@@ -2,6 +2,8 @@
 import { createContext, useCallback, useEffect, useState } from "react";
 import { baseUrl, getRequest, postRequest } from "../utils/services";
 
+import {io} from "socket.io-client";
+
 export const ChatContext = createContext(null);
 
 // eslint-disable-next-line react/prop-types
@@ -16,6 +18,21 @@ export const ChatContextProvider = ({ children, user }) => {
   const [messagesError, setMessagesError] = useState(null);
 const [sendTextMessageError,setSendTextMessageError] = useState(null)
 const [newMessage,setNewMessage] = useState(null)
+const [socket,setSocket] = useState(null)
+// initial socket
+useEffect(()=>{
+  const newSocket = io("http://localhost:3000");
+  setSocket(newSocket)
+  return()=>{
+    newSocket.disconnect("Disconnected this app")
+  }
+},[user])
+
+useEffect(()=>{
+  if (socket === null) return ;
+  socket.emit("addNewUser", 'asdfasdfasdf');
+},[])
+
   useEffect(() => {
     const getUser = async () => {
       const response = await getRequest(`${baseUrl}user`);
@@ -92,14 +109,16 @@ const [newMessage,setNewMessage] = useState(null)
           if (response.error) {
             return setSendTextMessageError(response)
           }
-          setMessages((prev) => {
-            const updatedMessages = [...prev.messages, response];
-            console.log(updatedMessages);
-            return { ...prev, messages: updatedMessages };
-          });
-          setTextMessage("")
-      },[currentChat]);
-
+         setMessages((prev) => {
+           return {
+             ...prev,
+             messages: [...prev.messages, response],
+           };
+         });
+         setTextMessage("")
+        },[currentChat]);
+        
+        console.log(messages);
   const updateCurrentChat = useCallback((chat) => {
     setCurrentChat(chat);
   }, []);
