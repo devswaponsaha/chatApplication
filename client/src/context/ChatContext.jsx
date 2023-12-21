@@ -2,6 +2,8 @@
 import { createContext, useCallback, useEffect, useState } from "react";
 import { baseUrl, getRequest, postRequest } from "../utils/services";
 
+import {io} from "socket.io-client";
+
 export const ChatContext = createContext(null);
 
 // eslint-disable-next-line react/prop-types
@@ -11,9 +13,25 @@ export const ChatContextProvider = ({ children, user }) => {
   const [userChatsError, setUserChatsError] = useState(null);
   const [potentialChats, setPotentialChats] = useState([]);
   const [currentChat, setCurrentChat] = useState(null);
-  const [messages, setMessages] = useState(null);
+  const [messages, setMessages] = useState([]);
   const [isMessagesLoading, setIsMessagesLoading] = useState(false);
   const [messagesError, setMessagesError] = useState(null);
+const [sendTextMessageError,setSendTextMessageError] = useState(null)
+const [newMessage,setNewMessage] = useState(null)
+const [socket,setSocket] = useState(null)
+// initial socket
+useEffect(()=>{
+  const newSocket = io("http://localhost:3000");
+  setSocket(newSocket)
+  return()=>{
+    newSocket.disconnect("Disconnected this app")
+  }
+},[user])
+
+useEffect(()=>{
+  if (socket === null) return ;
+  socket.emit("addNewUser", 'asdfasdfasdf');
+},[])
 
   useEffect(() => {
     const getUser = async () => {
@@ -62,8 +80,10 @@ export const ChatContextProvider = ({ children, user }) => {
   useEffect(() => {
     const getMessages = async () => {
       setIsMessagesLoading(true);
-        setMessagesError(null);
-      const response = await getRequest(`${baseUrl}message/${currentChat?._id}`);
+      setMessagesError(null);
+      const response = await getRequest(
+        `${baseUrl}message/${currentChat?._id}`
+      );
       setIsMessagesLoading(false);
       if (response.error) {
         return setMessagesError(response);
@@ -72,7 +92,33 @@ export const ChatContextProvider = ({ children, user }) => {
     };
     getMessages();
   }, [currentChat]);
+  
 
+  const sendTextMessage = useCallback(
+      async (textMessage, sender, currentChatId, setTextMessage) => {
+        if (!textMessage) return console.log("You must type something");
+        // console.log('Text Message',textMessage,'Sender',sender,'SenderId',currentChatId,'set text message',setTextMessage);
+        const response = await postRequest(
+          `${baseUrl}message`,
+          JSON.stringify({
+            chatId: currentChatId,
+            senderId: sender._id,
+            text: textMessage,
+          })
+        );
+          if (response.error) {
+            return setSendTextMessageError(response)
+          }
+         setMessages((prev) => {
+           return {
+             ...prev,
+             messages: [...prev.messages, response],
+           };
+         });
+         setTextMessage("")
+        },[currentChat]);
+        
+        console.log(messages);
   const updateCurrentChat = useCallback((chat) => {
     setCurrentChat(chat);
   }, []);
@@ -96,10 +142,12 @@ export const ChatContextProvider = ({ children, user }) => {
         userChatsError,
         potentialChats,
         createChat,
-              updateCurrentChat,
-              messages,
-              isMessagesLoading,
-                messagesError,
+        updateCurrentChat,
+        messages,
+        isMessagesLoading,
+        messagesError,
+        currentChat,
+        sendTextMessage,
       }}
     >
       {children}
